@@ -24,20 +24,21 @@ void run_server()
         return;
     }
     
-    memset(&server_poll.fds, 0, sizeof(server_poll.fds)); // Заполняем значениями по умолчанию
+    // Заполняем структуры для всех клиентов значениями по умолчанию.
+    memset(&server_poll.fds, -1, sizeof(server_poll.fds));
     
-    server_poll.nfds = 1; // Изначально инициализируем структуру для одного клиента.
+    // Инициализируем структуру для прослушивающего серверного сокета.
+    server_poll.nfds = 1;
     server_poll.fds[0].fd = server_poll.server_socket;
     server_poll.fds[0].events = POLLIN; // готовность к чтению
 
     log_i("%s", "Server poll started started!");
     
-    int result = start_poll(server_poll);
-    if (result < 0) {
-        log_e("%s", "Server poll failed");
-    } else {
-        log_i("%s", "Server poll finished successfully!");
-    }
+    int success;
+    do
+    {
+        success = do_poll(server_poll);
+    } while (success);
 
     log_i("%s", "Server process finished!");
     stop_server();

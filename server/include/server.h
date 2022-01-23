@@ -7,7 +7,7 @@
 
 #define SERVER_PORT 50000
 
-extern struct poll_args server_poll_args;
+extern poll_args server_poll;
 
 void run_server();
 int initSocket(int *server_socket);
