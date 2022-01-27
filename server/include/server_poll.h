@@ -5,6 +5,8 @@
 
 #define MAX_CLIENTS 200
 #define BUFFER_SIZE 1024
+#define TIMEOUT 1000
+#define ACCEPT_ATTEMPTS 2
 
 typedef struct {
 	int server_socket;
@@ -15,7 +17,7 @@ typedef struct {
 int do_poll(poll_args server_poll);
 int is_server_socket(poll_args server_poll, int socket);
 int handle_clients(poll_args *server_poll);
-int accept_new_client(int server_socket);
+int accept_new_clients(poll_args *server_poll);
 int handle_client(int socket);
 void remove_closed_clients(poll_args* server_poll);
 

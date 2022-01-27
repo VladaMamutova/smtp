@@ -1,5 +1,6 @@
 #include "log.h"
 #include "server.h"
+#include "socket_utils.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h> // sockaddr_in
@@ -54,15 +55,15 @@ int initSocket(int *server_socket)
         return -1;
     }
 
-    if (setsockopt(*server_socket, SOL_SOCKET, SO_REUSEPORT | SO_REUSEADDR,
-                   (char *)&opt_val, sizeof(opt_val)) < 0) {
-        printf("Error: setsockopt() failed");
+    if (set_socket_nonblock(*server_socket) < 0) {
+        printf("Error: Failed to set non-blocking mode for the server socket");
         close(*server_socket);
         return -1;
     }
 
-    if (ioctl(*server_socket, FIONBIO, (char *)&opt_val) < 0) {
-        printf("Error: ioctl() failed");
+    if (setsockopt(*server_socket, SOL_SOCKET, SO_REUSEPORT | SO_REUSEADDR,
+                   (char *)&opt_val, sizeof(opt_val)) < 0) {
+        printf("Error: setsockopt() failed");
         close(*server_socket);
         return -1;
     }

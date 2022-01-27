@@ -1,11 +1,15 @@
 #include "log.h"
+#include "socket_utils.h"
 #include "server_poll.h"
 
 #include <sys/poll.h>
 #include <sys/socket.h>
+#include <netinet/in.h> // sockaddr_in
+#include <arpa/inet.h> // inet_ntoa
 #include <unistd.h> // close
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h> // uint32_t
 
 #include <string.h> // strerror
 #include <errno.h>
@@ -36,24 +40,25 @@ int handle_clients(poll_args *server_poll)
 {
     int closed = 0;
     int client_number = server_poll->nfds;
-    for (int i = 0; i < client_number; i++)
+    for (int i = 0; i < client_number; ++i)
     {
         struct pollfd client = server_poll->fds[i];
         if (client.revents == 0) {
             continue;
         }
 
-        if (!(client.revents & POLLIN)) {
+        if (!(client.revents & POLLIN)) { // обнуляем revents
             log_e("Incorrect events (%d) occured in the [%d] connection (%d).",
                   client.revents, i, client.fd);
-            return -1; // continue?
+            continue;
         }
 
         if (is_server_socket(*server_poll, client.fd)) {
-            int accepted = accept_new_client(client.fd);
+            int accepted = accept_new_clients(server_poll);
             if (!accepted) {
                 log_w("%s", "Unable to accept a new connection.");
-                continue;
+            } else {
+                log_i("Accepted %d clients.", accepted);
             }
         }
         else
@@ -76,10 +81,44 @@ int handle_clients(poll_args *server_poll)
     return 0;
 }
 
-int accept_new_client(int server_socket)
+int accept_new_clients(poll_args *server_poll)
 {
-    // TODO
-    return 0;
+    int accepted = 0;
+    int error_attempts = 0;
+    int try_again = 0;
+    int client_socket;
+    struct sockaddr_in client_addr;
+    uint32_t addr_size = sizeof(client_addr);
+	do {
+        log_d("%s", "Trying to accept a new connection...");
+		client_socket = accept(server_poll->server_socket, (struct sockaddr*)&client_addr, &addr_size);
+		if (client_socket < 0) {
+            error_attempts++;
+            log_e("Failed to accept new connection (%s).", strerror(errno));
+            if (is_net_or_protocol_error()) {
+                try_again = error_attempts <= ACCEPT_ATTEMPTS;
+                log_d("Trying again: %s, attempt: %d", try_again == 1 ? "true" : "false", error_attempts);
+            } else {
+                try_again = 0;
+            }
+		} else {
+            error_attempts = 0;
+            log_i("New client %s:%d accepted (socket: %d).", inet_ntoa(client_addr.sin_addr), client_addr.sin_port, client_socket);
+
+            struct timeval socket_timeout;
+            socket_timeout.tv_sec = TIMEOUT;
+            socket_timeout.tv_usec = 0;
+            set_socket_nonblock(client_socket);
+            setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &socket_timeout, sizeof(socket_timeout));
+
+            server_poll->fds[server_poll->nfds].fd = client_socket;
+            server_poll->fds[server_poll->nfds].events = POLLIN;
+            ++server_poll->nfds;
+            ++accepted;
+        }
+	} while (client_socket != -1 || try_again);
+
+    return accepted;
 }
 
 int handle_client(int socket)
@@ -102,16 +141,15 @@ int handle_client(int socket)
 	return 1;
 }
 
-void remove_closed_clients(poll_args* server_poll)
+void remove_closed_clients(poll_args *server_poll)
 {
-    // TODO: учесть новые подключения
-    for (int i = 0; i < server_poll->nfds; i++) { // + 1 на новый клиент ?
+    for (int i = 0; i < server_poll->nfds; ++i) {
         if (server_poll->fds[i].fd == -1) {
-            for (int j = i; j < server_poll->nfds; ++j) { // + 1 на новый клиент ?
+            for (int j = i; j < server_poll->nfds; ++j) {
                 server_poll->fds[j].fd = server_poll->fds[j + 1].fd;
             }
-            i--;
-            server_poll->nfds--;
+            --i;
+            --server_poll->nfds;
         }
     }
 }
