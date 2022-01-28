@@ -10,9 +10,24 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h> // uint32_t
-
 #include <string.h> // strerror
 #include <errno.h>
+
+void init_server_poll(poll_args *server_poll, int server_socket)
+{
+    server_poll->server_socket = server_socket;
+
+    // Заполняем структуры для всех клиентов значениями по умолчанию.
+    memset(&server_poll->fds, -1, sizeof(server_poll->fds));
+    
+    // Инициализируем структуру для прослушивающего серверного сокета.
+    server_poll->nfds = 1;
+    server_poll->fds[0].fd = server_poll->server_socket;
+    server_poll->fds[0].events = POLLIN; // готовность к чтению
+
+    // Инициализируем список с информацией о клиентах.
+    init_client_hash(MAX_CLIENTS);
+}
 
 int do_poll(poll_args server_poll)
 {
@@ -68,6 +83,7 @@ int handle_clients(poll_args *server_poll)
             {
                 log_i("Close and release <%d> client.", client.fd);
                 close(client.fd);
+                remove_client(client.fd);
                 client.fd = -1;
                 closed++;
             }
@@ -76,6 +92,7 @@ int handle_clients(poll_args *server_poll)
 
     if (closed) {
         remove_closed_clients(server_poll);
+        log_i("%d clients disconnected.", closed);
     }
 
     return 0;
@@ -86,37 +103,40 @@ int accept_new_clients(poll_args *server_poll)
     int accepted = 0;
     int error_attempts = 0;
     int try_again = 0;
-    int client_socket;
-    struct sockaddr_in client_addr;
-    uint32_t addr_size = sizeof(client_addr);
+    int socket;
+    struct sockaddr_in address;
+    uint32_t address_size = sizeof(address);
 	do {
         log_d("%s", "Trying to accept a new connection...");
-		client_socket = accept(server_poll->server_socket, (struct sockaddr*)&client_addr, &addr_size);
-		if (client_socket < 0) {
+		socket = accept(server_poll->server_socket,
+            (struct sockaddr*)&address, &address_size);
+		if (socket < 0) {
             error_attempts++;
             log_e("Failed to accept new connection (%s).", strerror(errno));
             if (is_net_or_protocol_error()) {
                 try_again = error_attempts <= ACCEPT_ATTEMPTS;
-                log_d("Trying again: %s, attempt: %d", try_again == 1 ? "true" : "false", error_attempts);
+                log_d("Trying again: %s, attempt: %d",
+                    try_again == 1 ? "true" : "false", error_attempts);
             } else {
                 try_again = 0;
             }
 		} else {
             error_attempts = 0;
-            log_i("New client %s:%d accepted (socket: %d).", inet_ntoa(client_addr.sin_addr), client_addr.sin_port, client_socket);
+            client *new_client = create_client(socket, address);
+            insert_client(*new_client);
 
-            struct timeval socket_timeout;
-            socket_timeout.tv_sec = TIMEOUT;
-            socket_timeout.tv_usec = 0;
-            set_socket_nonblock(client_socket);
-            setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &socket_timeout, sizeof(socket_timeout));
+            log_i("New client %s:%d accepted (socket: %d).",
+                inet_ntoa(address.sin_addr), address.sin_port, socket);
 
-            server_poll->fds[server_poll->nfds].fd = client_socket;
+            set_socket_nonblock(socket);
+            set_socket_timeout(socket, TIMEOUT);            
+
+            server_poll->fds[server_poll->nfds].fd = socket;
             server_poll->fds[server_poll->nfds].events = POLLIN;
             ++server_poll->nfds;
             ++accepted;
         }
-	} while (client_socket != -1 || try_again);
+	} while (socket != -1 || try_again);
 
     return accepted;
 }

@@ -19,19 +19,13 @@ void run_server()
 {
     init_signals_handler();
     
-    server_poll.server_socket = -1;
-    if (initSocket(&server_poll.server_socket) < 0) {
+    int server_socket = -1;
+    if (initSocket(&server_socket) < 0) {
         log_e("%s", "Failed to create socket!");
         return;
     }
     
-    // Заполняем структуры для всех клиентов значениями по умолчанию.
-    memset(&server_poll.fds, -1, sizeof(server_poll.fds));
-    
-    // Инициализируем структуру для прослушивающего серверного сокета.
-    server_poll.nfds = 1;
-    server_poll.fds[0].fd = server_poll.server_socket;
-    server_poll.fds[0].events = POLLIN; // готовность к чтению
+    init_server_poll(&server_poll, server_socket);
 
     log_i("%s", "Server poll started started!");
     

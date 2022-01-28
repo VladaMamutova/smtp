@@ -1,10 +1,12 @@
 #include "socket_utils.h"
 
 #include <fcntl.h>
+#include <sys/socket.h>
 #include <stdio.h>
 #include <errno.h>
 
-int set_socket_nonblock(int socket_fd) {
+int set_socket_nonblock(int socket_fd)
+{
     int flags;
     if ((flags = fcntl(socket_fd, F_GETFL, NULL)) < 0) {
         return -1;
@@ -15,11 +17,21 @@ int set_socket_nonblock(int socket_fd) {
     return 0;
 }
 
-int no_connection() {
+int set_socket_timeout(int socket_fd, int seconds)
+{
+    struct timeval timeout;
+    timeout.tv_sec = seconds;
+    timeout.tv_usec = 0;
+    return setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+}
+
+int no_connection()
+{
     return errno == EWOULDBLOCK || errno == EAGAIN; // сокет неблокирующий и в очереди нет запросов на соединение
 }
 
-int is_net_or_protocol_error() {
+int is_net_or_protocol_error()
+{
     return errno == ENETDOWN || errno == EPROTO || 
            errno == ENOPROTOOPT || errno == EHOSTDOWN ||
            errno == ENONET || errno == EHOSTUNREACH || 
