@@ -1,1 +1,8 @@
 .vscode
+/client/client
+log.txt
+client/rpz/tex/rpz.aux
+client/rpz/tex/rpz.log
+client/rpz/tex/rpz.out
+client/rpz/tex/rpz.toc
+
