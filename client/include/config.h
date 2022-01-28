@@ -1,3 +1,6 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
 #include <libconfig.h>
 #include <string.h>
 #include <stdbool.h>
@@ -17,3 +20,5 @@ extern config config_context;
 bool loading_config();
 int init_signals_handler();
 void destroy_configuration();
+
+#endif

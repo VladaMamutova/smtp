@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "util.h"
 
-string* add_character(string *str, char character);
+my_str* add_character(my_str *str, char character);
 
 long int convert_string_to_long_int(const char *str) {
     char *end;
@@ -26,9 +26,9 @@ int check_equation_delim(const char *const str, const char *const delim, int off
 string_tokens split(const char *const str, const char *const delim) {
 
     int count_tokens = 0;
-    string *tokens = allocate_memory((sizeof(string)));
+    my_str *tokens = allocate_memory((sizeof(my_str)));
 
-    string *token = allocate_memory(sizeof(string));
+    my_str *token = allocate_memory(sizeof(my_str));
     token->chars = NULL;
     token->length = 0;
 
@@ -45,8 +45,8 @@ string_tokens split(const char *const str, const char *const delim) {
                 token = allocate_memory(sizeof(*token));
                 token->chars = NULL;
                 token->length = 0;
-                tokens = reallocate_memory(tokens,sizeof(string) * count_tokens,
-                                           sizeof(string) * (count_tokens + 1));
+                tokens = reallocate_memory(tokens,sizeof(my_str) * count_tokens,
+                                           sizeof(my_str) * (count_tokens + 1));
                 continue;
             }
         }
@@ -68,7 +68,7 @@ void free_string_tokens(string_tokens *tokens) {
     free(tokens->tokens);
 }
 
-string *add_character(string *str, char character) {
+my_str *add_character(my_str *str, char character) {
     size_t capacity = str->length + 1;
     if (str->chars == NULL) {
         str->length = 0;
@@ -88,7 +88,7 @@ string *add_character(string *str, char character) {
     return str;
 }
 
-void free_string(string *str) {
+void free_string(my_str *str) {
     free(str->chars);
     free(str);
 }
