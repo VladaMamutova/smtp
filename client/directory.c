@@ -166,11 +166,17 @@ void read_maildir_servers_new(maildir_other_server *server)
             int newMesg = 1;
             for (int i = 0; i < server->messages_count; i++)
             {
-                if (strcmp(server->message_full_file_names[i], entry->d_name) == 0)
+                char* msg = malloc((1 + strlen(server->directory) + strlen(entry->d_name)) * sizeof(char));
+                strcpy(msg, "");
+                strcat(msg, server->directory);
+                strcat(msg, "/");
+                strcat(msg, entry->d_name);
+                if (strcmp(server->message_full_file_names[i], msg) == 0)
                 {
                     newMesg = 0;
                     break;
                 }
+                free(msg);
             }
             if (newMesg)
             {
@@ -239,6 +245,9 @@ message *parse_message(char *filepath)
             if (strcmp(string, "\n") != 0 && strcmp(string, "\r\n") != 0)
             {
                 p = get_header(string);
+            } else {
+                free(string);
+                break;
             }
 
             if (p != NULL)
@@ -249,6 +258,7 @@ message *parse_message(char *filepath)
                     free(p->first);
                     free(p->second);
                     free(p);
+                    strings_count++;
                 }
                 else if (strcmp(p->first, "to") == 0)
                 {
@@ -256,44 +266,47 @@ message *parse_message(char *filepath)
 
                     mes->to_size = tokens.count_tokens;
                     mes->to = callocate_memory(mes->to_size, sizeof(char *));
-                    mes->addresses = callocate_memory(1, sizeof(char *));
 
                     for (size_t i = 0; i < mes->to_size; i++)
                     {
                         asprintf(&mes->to[i], "%s", tokens.tokens[i].chars);
-                        string_tokens ts = split(p->second, "@");
-                        if (ts.count_tokens == 2)
-                        {
-                            bool flag = true;
-                            for (int k = 0; k < mes->addresses_size; k++)
-                            {
-                                if (strcmp(ts.tokens[1].chars, mes->addresses[k]) == 0)
-                                {
-                                    flag = false;
-                                }
-                            }
-                            if (flag)
-                            {
-                                mes->addresses = reallocate_memory(mes->addresses,
-                                                                   sizeof(char *) * mes->addresses_size,
-                                                                   sizeof(char *) * (mes->addresses_size + 1));
-                                asprintf(&mes->addresses[mes->addresses_size++], "%s", ts.tokens[1].chars);
-                            }
-                        }
-                        free_string_tokens(&ts);
                     }
+                    strings_count++;
                     free_string_tokens(&tokens);
                     free(p->first);
                     free(p->second);
                     free(p);
+                } else  if (strcmp(p->first, "subject") == 0)
+                {                   
+                    free(p->first);
+                    free(p->second);
+                    free(p);
+                    strings_count++;
                 }
+                if (mes->line != NULL )
+                {
+                    if(strings_count-1 > 0){                           
+                        mes->line = reallocate_memory(mes->line, sizeof(char *) * (strings_count -1),
+                                                sizeof(char *) * (strings_count ));
+                    }
+                }
+                asprintf(&mes->line[strings_count-1], "%s", string);
             }
-            
-            if (mes->line != NULL)
-            {
-                mes->line = reallocate_memory(mes->line, sizeof(char *) * strings_count,
+            free(string);
+        }
+        if(strings_count < 3){
+            log_i("Error headers not found: %s", filepath);
+            move_msg_to_error(filepath);
+            return NULL;
+        }
+
+        while ((string = file_readline(fp)) != NULL)
+        {
+            trim(string);
+           
+            mes->line = reallocate_memory(mes->line, sizeof(char *) * strings_count,
                                               sizeof(char *) * (strings_count + 1));
-            }
+            
             asprintf(&mes->line[strings_count], "%s", string);
             strings_count++;
             free(string);
@@ -339,6 +352,9 @@ my_pair *get_header(char *line)
         else if (strstr(str, "to") != NULL)
         {
             asprintf(&p->first, "%s", "to");
+        }else if (strstr(str, "subject") != NULL)
+        {
+            asprintf(&p->first, "%s", "subject");
         }
 
         if (tokens.count_tokens == 2)
@@ -374,15 +390,7 @@ void delete_msg(maildir_other_server *server, message *msg, int flg)
     }
     if (flg == 1)
     {
-        char *newPath = malloc(sizeof(char) * (strlen(msg->directory) + 7));
-        strcpy(newPath, server->directory);
-        strcat(newPath, "/error");
-        int len = (strlen(msg->directory) - strlen(server->directory));
-        int offset = strlen(server->directory);
-        char *mailname = malloc(sizeof(char) * len);
-        strncpy(mailname, msg->directory + offset, len);
-        strcat(newPath, mailname);
-        rename(msg->directory, newPath);
+        move_msg_to_error(msg->directory);
     }
 
     struct stat stat_info;
@@ -429,6 +437,36 @@ void delete_msg(maildir_other_server *server, message *msg, int flg)
     free_message(msg);
 }
 
+void move_msg_to_error(char *oldPath){
+
+        char *pch = strchr(oldPath, '/'); 
+        int count = 0;   
+        while (pch != NULL) {
+            pch = strchr(pch+1, '/');
+            count++;
+        }
+        pch = strchr(oldPath, '/'); 
+        for(int i =0; i<count-1; i++){
+            pch = strchr(pch+1, '/');
+        }
+        char* mailname = malloc(sizeof(char) * (strlen(oldPath)));
+        strcpy(mailname, pch);       
+
+        char *newPath = malloc(sizeof(char) * (strlen(oldPath) + 7));
+        
+        int lenOld = strlen(oldPath) ;
+        int lenMail = strlen(mailname);
+        int lenNew = (strlen(oldPath) - strlen(mailname));
+        printf("lenOld = %d, lenMail = %d,  lenNew = %d\n",  lenOld, lenMail, lenNew);
+
+        strcat(newPath,"");
+        strncat(newPath, oldPath, (strlen(oldPath) - strlen(mailname)) );
+        strcat(newPath, "/error");        
+        strcat(newPath, mailname);
+        rename(oldPath, newPath);
+        
+}
+
 void free_message(message *msg)
 {
     free(msg->directory);
@@ -438,11 +476,6 @@ void free_message(message *msg)
     }
     free(msg->to);
     free(msg->from);
-    for (int i = 0; i < msg->addresses_size; i++)
-    {
-        free(msg->addresses[i]);
-    }
-    free(msg->addresses);
     for (int i = 0; i < msg->line_size; i++)
     {
         free(msg->line[i]);
