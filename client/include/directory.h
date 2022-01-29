@@ -19,9 +19,6 @@ typedef struct message {
 
     char **line;
     size_t line_size;
-    
-    char **addresses;
-    size_t addresses_size;
 
     char* date;
 } message;
@@ -58,6 +55,7 @@ message *get_message(maildir_other_server *server);
 message *parse_message(char *filepath);
 my_pair *get_header(char *line); 
 int find_server_num_by_name(char *name, maildir_main *maildir);
-void delete_msg(maildir_other_server *server, message *mes, int flg) ;
+void delete_msg(maildir_other_server *server, message *mes, int flg);
+void move_msg_to_error(char *oldPath);
 void free_message(message *mess);
 #endif

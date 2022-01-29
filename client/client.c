@@ -42,6 +42,7 @@ void run_client()
                 {
                     //выполняем подключение к серверу
                     log_i("Try connect to server %s", maildir->servers[j].server_name);
+                    printf("Try connect to server %s\n", maildir->servers[j].server_name);
                     maildir->servers[j].smtp_context = smtp_connect(maildir->servers[j].server_name, "25");
 
                     if (maildir->servers[j].smtp_context->state_code == INVALID)
@@ -71,21 +72,16 @@ void run_client()
                     client_context.map[client_context.conn_context_count - 1 ] = j;
                 }
             }
-            else
-            {
-                log_i("Searching new mail for %s ... ", maildir->servers[j].server_name);
-                printf("Searching new mail for %s ... ", maildir->servers[j].server_name);
-                read_maildir_servers_new(&maildir->servers[j]);
-            }
+                log_i("Searching new mail for %s ... \n", maildir->servers[j].server_name);
+                printf("Searching new mail for %s ... \n", maildir->servers[j].server_name);
+                read_maildir_servers_new(&maildir->servers[j]);            
         }
-
-        printf("Do poll\n");
 
         int res = poll(client_context.poll_fds, client_context.conn_context_count, 1000);
         if (res == -1)
         {
             log_e("%s", "Error when poll");
-            printf("Errror when poll");
+            printf("Error when poll");
         }
         else if (res == 0)
         {
@@ -402,7 +398,8 @@ void handler_end_message(int index)
         server->cur_msg = NULL;
         if (server->messages_count > 0)
         {
-            server->smtp_context->state_code = HELO;
+            server->smtp_context->state_code = CONNECT;
+            smtp_send_helo(server->smtp_context);
         }
         else
         {
