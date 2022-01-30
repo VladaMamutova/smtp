@@ -345,6 +345,26 @@ clean:
 
 	  \end{Verbatim}
 
+	  Также было подготовлено несколько модульных тектов, с помощью библиотеки \textit{cunit}. Все тесты успешно завершились, вывод работы тестов представлен ниже.
+
+	  \begin{Verbatim}
+  Suite: MSG unit tests suite
+
+  Test: EMAIL_FILE_READ_ERROR ...passed
+  Test: EMAIL_FILE_READ_SUCCESS ...passed
+  Test: GET_IP_SUCCESS ...passed
+  Test: GET_HEADER_SUCCESS ...passed
+  Test: PARSE_MESSAGE_SUCCESS ...passed
+  Test: RESOLVE_MX_SUCCESS ...passed
+
+Run Summary:    Type  Total    Ran Passed Failed Inactive
+              suites      1      1    n/a      0        0
+               tests      6      6      6      0        0
+             asserts      6      6      6      0      n/a
+
+Elapsed time =    0.002 seconds
+\end{Verbatim}
+
 	\chapter{Заключение}
 
 	В результате выполнения данной курсовой работы был изучен протокол SMTP. 
@@ -353,7 +373,7 @@ clean:
 	 Разработка SMTP-клиента сопровождалась построением диаграмм,
 	  в том числе и конечного автомата для последующей разработке 
 	  общения SMTP-клиента с удаленным SMTP-сервером. 
-	  Проведено ручное тестирование.
+	  Проведено модульное и ручное тестирование.
 	
 	В заключение можно сделать вывод, что все поставленные задачи в рамках курсовой работы по 
 	разработке SMTP-клиента как части MTA были выполнены.

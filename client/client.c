@@ -19,7 +19,7 @@ void run_client()
 {
     log_i("%s", "Starting client...");
 
-    //обработчик системного вызова
+    //регистрируем обработчик системного вызова
     signal(SIGINT, handle_signal);
 
     //дирректория с письмами
@@ -43,6 +43,7 @@ void run_client()
                     //выполняем подключение к серверу
                     log_i("Try connect to server %s", maildir->servers[j].server_name);
                     printf("Try connect to server %s\n", maildir->servers[j].server_name);
+
                     maildir->servers[j].smtp_context = smtp_connect(maildir->servers[j].server_name, "25");
 
                     if (maildir->servers[j].smtp_context->state_code == INVALID)
@@ -65,114 +66,112 @@ void run_client()
                                                                     sizeof(struct pollfd) * (client_context.conn_context_count - 1),
                                                                     sizeof(struct pollfd) * client_context.conn_context_count);
                     }
+
                     struct pollfd poll_fd = {0};
                     poll_fd.fd = maildir->servers[j].smtp_context->socket_desc;
                     poll_fd.events = POLL_IN;
+
                     client_context.poll_fds[client_context.conn_context_count - 1] = poll_fd;
-                    client_context.map[client_context.conn_context_count - 1 ] = j;
+                    client_context.map[client_context.conn_context_count - 1] = j;
                 }
             }
-                log_i("Searching new mail for %s ... \n", maildir->servers[j].server_name);
-                printf("Searching new mail for %s ... \n", maildir->servers[j].server_name);
-                read_maildir_servers_new(&maildir->servers[j]);            
+           // log_i("Searching new mail for %s ... \n", maildir->servers[j].server_name);
+           // printf("Searching new mail for %s ... \n", maildir->servers[j].server_name);
+            read_maildir_servers_new(&maildir->servers[j]);
         }
 
-        int res = poll(client_context.poll_fds, client_context.conn_context_count, 1000);
-        if (res == -1)
+        if (client_context.conn_context_count > 0)
         {
-            log_e("%s", "Error when poll");
-            printf("Error when poll");
-        }
-        else if (res == 0)
-        {
-            log_i("%s", "timeout");
-        }
-        else
-        {
-
-            log_i("ready from poll = %d", res);
-            for (int i = 0; i < client_context.conn_context_count; i++)
+            int res = poll(client_context.poll_fds, client_context.conn_context_count, 100);
+            if (res == -1)
             {
-                int index = client_context.map[i];
-                //подготавливаем сообщение для отправки
-                if (maildir->servers[index].cur_msg == NULL)
+                log_e("%s", "Error when poll");
+                printf("Error when poll");
+            }
+            else if (res == 0)
+            {
+                log_i("%s", "timeout");
+            }
+            else
+            {
+                for (int i = 0; i < client_context.conn_context_count; i++)
                 {
-                    message *msg;
-                    if ((msg = get_message(&maildir->servers[index])) == NULL)
+                    int index = client_context.map[i];
+                    //подготавливаем сообщение для отправки
+                    if (maildir->servers[index].cur_msg == NULL)
                     {
+                        message *msg;
+                        if ((msg = get_message(&maildir->servers[index])) == NULL)
+                        {
 
-                        log_i("msg not found in %s", maildir->servers[index].server_name);
+                            log_i("msg not found in %s", maildir->servers[index].server_name);
 
-                        smtp_send_quit(maildir->servers[index].smtp_context);
-                        remove_server_from_context(i);
+                            smtp_send_quit(maildir->servers[index].smtp_context);
+                            remove_server_from_context(i);
 
-                        continue;
+                            continue;
+                        }
+                        else
+                        {
+                            maildir->servers[index].cur_msg = msg;
+                        }
+                    }
+
+                    if (client_context.poll_fds[i].revents != 0)
+                    {
+                        client_context.poll_fds[i].revents = 0;
+
+                        switch (maildir->servers[index].smtp_context->state_code)
+                        {
+                        case CONNECT:
+                        {
+                            handle_connect(index);
+                            //log_i("%s", "send hello");
+                            break;
+                        }
+                        case HELO:
+                        {
+                            //log_i("%s", "HANDLE hello");
+                            handler_helo(index);
+                            break;
+                        }
+                        case MAIL:
+                        {
+                            //log_i("%s", "HANDLE mail");
+                            handler_mail(index);
+                            break;
+                        }
+                        case RCPT:
+                        {
+                            //log_i("%s", "HANDLE rcpt");
+                            handler_rcpt(index);
+                            break;
+                        }
+                        case DATA:
+                        {
+                            //log_i("%s", "HANDLE DATA");
+                            handler_data(index);
+                            break;
+                        }
+                        case END_MESSAGE:
+                        {
+                            //log_i("%s", "END MESSAGE");
+                            handler_end_message(index);
+                            break;
+                        }
+                        default:
+                        {
+                            printf("state_code = %d\n", maildir->servers[index].smtp_context->state_code);
+
+                            remove_server_from_context(index);
+                            break;
+                        }
+                        }
                     }
                     else
                     {
-                        maildir->servers[index].cur_msg = msg;
+                        log_i("some error with  %s", maildir->servers[index].server_name);
                     }
-                }
-
-                if (client_context.poll_fds[i].revents != 0)
-                {
-                    client_context.poll_fds[i].revents = 0;
-                    
-                    switch (maildir->servers[index].smtp_context->state_code)
-                    {
-                    case CONNECT:
-                    {
-                        handle_connect(index);
-                        log_i("%s", "send hello");
-                        break;
-                    }
-                    case HELO:
-                    {
-                        log_i("%s", "HANDLE hello");
-                        handler_helo(index);
-                        break;
-                    }
-                    case MAIL:
-                    {
-                        log_i("%s", "HANDLE mail");
-                        handler_mail(index);
-                        break;
-                    }
-                    case RCPT:
-                    {
-                        log_i("%s", "HANDLE rcpt");
-                        printf("%s", "HANDLE rcpt\n");
-                        handler_rcpt(index);
-                        break;
-                    }
-                    case DATA:
-                    {
-                        log_i("%s", "HANDLE DATA");
-                        printf("%s", "HANDLE DATA\n");
-
-                        handler_data(index);
-                        break;
-                    }
-                    case END_MESSAGE:
-                    {
-                        log_i("%s", "END MESSAGE");
-                        printf("%s", "END MESSAGE rcpt \n");
-                        handler_end_message(index);
-                        break;
-                    }
-                    default:
-                    {
-                        log_i("switch  state_code = %d", maildir->servers[index].smtp_context->state_code);
-                        printf("switch  state_code = %d\n", maildir->servers[index].smtp_context->state_code);
-
-                        remove_server_from_context(index);
-                        break;
-                    }
-                    }
-                }
-                else
-                {
-                    log_i("some error with  %s", maildir->servers[index].server_name);
                 }
             }
         }
@@ -325,10 +324,11 @@ void handler_rcpt(int index)
     server->response = allocate_memory(sizeof(smtp_response));
     server->response->status_code = status;
 
-    if(status == SMTP_USER_MAILBOX_WAS_UNAVAILABLE){
+    if (status == SMTP_USER_MAILBOX_WAS_UNAVAILABLE)
+    {
         server->error++;
     }
-    if ((is_smtp_success(status) || status == SMTP_USER_MAILBOX_WAS_UNAVAILABLE ) && server->error < server->cur_msg->to_size )
+    if ((is_smtp_success(status) || status == SMTP_USER_MAILBOX_WAS_UNAVAILABLE) && server->error < server->cur_msg->to_size)
     {
         server->response->status_code = NOT_ANSWER;
         server->response->message = NULL;
@@ -342,7 +342,7 @@ void handler_rcpt(int index)
             server->iteration = 0;
             smtp_send_data(server->smtp_context);
         }
-    } 
+    }
     else
     {
         log_i(" STATUS = %d, run %s", status, "smtp_send_quit(&server->smtp_context);");
@@ -415,6 +415,8 @@ void handler_end_message(int index)
     {
         log_i(" STATUS = %d, run %s", status, "smtp_send_quit(&server->smtp_context);");
         smtp_send_quit(server->smtp_context);
+        delete_msg(server, server->cur_msg, 1);
+        server->cur_msg = NULL;        
         remove_server_from_context(index);
     }
 }
@@ -429,22 +431,23 @@ char *prepare_message(maildir_other_server *server)
     int new_len = len_msg;
     for (int i = 1; i < server->cur_msg->line_size; i++)
     {
-        new_len= new_len + strlen(server->cur_msg->line[i]) + 1;
-        if(len_msg < new_len){
-            if(len_msg*2 < new_len){
+        new_len = new_len + strlen(server->cur_msg->line[i]) + 1;
+        if (len_msg < new_len)
+        {
+            if (len_msg * 2 < new_len)
+            {
                 buff = reallocate_memory(buff, sizeof(char *) * len_msg,
-                                 sizeof(char *) * new_len);
-                                 len_msg = new_len;
+                                         sizeof(char *) * new_len);
+                len_msg = new_len;
             }
-            else {
+            else
+            {
                 buff = reallocate_memory(buff, sizeof(char *) * len_msg,
-                                 sizeof(char *) * len_msg*2);
-                                  len_msg = len_msg*2;
+                                         sizeof(char *) * len_msg * 2);
+                len_msg = len_msg * 2;
             }
-
         }
         strcat(buff, server->cur_msg->line[i]);
-       
     }
 
     return buff;

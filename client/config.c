@@ -28,34 +28,24 @@ bool loading_config() {
     }
 
     if (debug != 0) {
-        log_i("%s", "Mode DEBUG is active");
+        // log_i("%s", "Mode DEBUG is active");
     }
 
     const char *hostname = NULL;
     if (!config_lookup_string(&cfg, "hostname", &hostname)) {
-        log_e("%s","Error read attr: hostname");
-        return false;
-    }
-
-    // Порт задается для локального сервера
-    const char *server_port = NULL;
-    if (!config_lookup_string(&cfg, "server_port", &server_port)) {
-        log_e("%s","Error read attr: server_port");
+        // log_e("%s","Error read attr: hostname");
         return false;
     }
     
     config_context.maildir = malloc(strlen(maildir_path) * sizeof(char));
     config_context.hostname = malloc(strlen(hostname) * sizeof(char));
-    config_context.server_port = malloc(strlen(server_port) * sizeof(char));
     strcpy(config_context.hostname, hostname);
-    strcpy(config_context.server_port, server_port);
     strcpy(config_context.maildir, maildir_path);
 
     // log_i("mail_dir = %s", config_context.maildir);
     // log_i("log level = %d", debug);
     // log_i("hostname = %s", config_context.hostname);
-    // log_i("server_port = %s", config_context.server_port);
-
+   
     config_destroy(&cfg);
     return true;
 }

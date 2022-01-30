@@ -48,8 +48,9 @@ int read_maildir_servers(maildir_main *maildir)
     struct stat stat_info; //информация о файле
     if (!stat(maildir->directory, &stat_info))
     {
+        // проверяем является ли дирректорией
         if (!S_ISDIR(stat_info.st_mode))
-        { // проверяем режим доступа
+        { 
             log_e("Error read  maildir: %s", maildir->directory);
             return 0;
         }
@@ -115,7 +116,7 @@ int read_maildir_servers(maildir_main *maildir)
 
     maildir->servers_size = servers_count;
 
-    log_i("maildir->servers_size = %d", maildir->servers_size);
+    //log_i("maildir->servers_size = %d", maildir->servers_size);
 
     free(path_other_servers);
 
@@ -295,7 +296,7 @@ message *parse_message(char *filepath)
             free(string);
         }
         if(strings_count < 3){
-            log_i("Error headers not found: %s", filepath);
+            //log_i("Error headers not found: %s", filepath);
             move_msg_to_error(filepath);
             return NULL;
         }
@@ -319,7 +320,7 @@ message *parse_message(char *filepath)
         }
         else
         {
-            log_i("Error when reading file: %s", filepath);
+            //log_i("Error when reading file: %s", filepath);
         }
 
         fclose(fp);
@@ -333,7 +334,7 @@ my_pair *get_header(char *line)
 {
     if (line == NULL)
     {
-        log_i("%s", "Error read message header");
+        //log_i("%s", "Error read message header");
         return NULL;
     }
 
@@ -385,7 +386,7 @@ void delete_msg(maildir_other_server *server, message *msg, int flg)
 {
     if (msg == NULL || msg->directory == NULL)
     {
-        log_i("%s", "Unable remove message: msg = NULL || msg->directory == NULL");
+        //log_i("%s", "Unable remove message: msg = NULL || msg->directory == NULL");
         return;
     }
     if (flg == 1)
@@ -399,8 +400,7 @@ void delete_msg(maildir_other_server *server, message *msg, int flg)
         if (!S_ISREG(stat_info.st_mode))
         {
             log_i("%s", "Unuble remove message: - not file");
-            // log_i("Unuble remove message: %s - not file", msg->directory);
-
+            
             return;
         }
     }
@@ -410,7 +410,7 @@ void delete_msg(maildir_other_server *server, message *msg, int flg)
         if (remove(msg->directory) != 0)
         {
             log_i("%s", "Fail when remove message");
-            // log_i("Fail when remove message %s", msg->directory);
+            // //log_i("Fail when remove message %s", msg->directory);
 
             return;
         }
@@ -452,16 +452,18 @@ void move_msg_to_error(char *oldPath){
         char* mailname = malloc(sizeof(char) * (strlen(oldPath)));
         strcpy(mailname, pch);       
 
-        char *newPath = malloc(sizeof(char) * (strlen(oldPath) + 7));
+        char *newPath = calloc((strlen(oldPath) + 7),sizeof(char));
         
-        int lenOld = strlen(oldPath) ;
-        int lenMail = strlen(mailname);
-        int lenNew = (strlen(oldPath) - strlen(mailname));
-        printf("lenOld = %d, lenMail = %d,  lenNew = %d\n",  lenOld, lenMail, lenNew);
+        // int lenOld = strlen(oldPath) ;
+        // int lenMail = strlen(mailname);
+        // int lenNew = (strlen(oldPath) - strlen(mailname));
 
-        strcat(newPath,"");
+
+
+        strcpy(newPath,"");
         strncat(newPath, oldPath, (strlen(oldPath) - strlen(mailname)) );
-        strcat(newPath, "/error");        
+        strcat(newPath, "/error");
+        mkdir(newPath, S_IRWXU);           
         strcat(newPath, mailname);
         rename(oldPath, newPath);
         
