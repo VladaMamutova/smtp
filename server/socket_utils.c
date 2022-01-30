@@ -25,9 +25,11 @@ int set_socket_timeout(int socket_fd, int seconds)
     return setsockopt(socket_fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 }
 
-int no_connection()
+int no_events()
 {
-    return errno == EWOULDBLOCK || errno == EAGAIN; // сокет неблокирующий и в очереди нет запросов на соединение
+    // Сокет помечен как неблокирующий, но запрашиваемая операция будет заблокирована
+    // (в очереди нет запросов на соединение, нет данных для чтения, для записи)
+    return errno == EWOULDBLOCK || errno == EAGAIN;
 }
 
 int is_net_or_protocol_error()

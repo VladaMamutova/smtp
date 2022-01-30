@@ -5,7 +5,7 @@
 
 #define CLIENT_TIMEOUT 2000
 
-#define SERVER_PORT 50000
+#define SERVER_PORT 50025
 
 extern poll_args server_poll;
 

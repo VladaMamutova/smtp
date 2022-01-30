@@ -27,13 +27,13 @@ void run_server()
     
     init_server_poll(&server_poll, server_socket);
 
-    log_i("%s", "Server poll started started!");
-    
-    int success;
+    log_i("%s", "Server poll started!\n");
+
+    int result;
     do
     {
-        success = do_poll(server_poll);
-    } while (success);
+        result = do_poll(&server_poll);
+    } while (result != -1);
 
     log_i("%s", "Server process finished!");
     stop_server();
@@ -82,12 +82,12 @@ int initSocket(int *server_socket)
 
 void init_signals_handler()
 {
-    signal(SIGINT, &handle_log_signal); // обработчик CTRL+C
+    signal(SIGINT, &handle_server_signal); // обработчик CTRL+C
 }
 
 void handle_server_signal(int signal)
 {
-    printf("Signal <SIGINT> received. Stopping server...\n");
+    printf("\nSignal <SIGINT> received. Stopping server...\n");
     stop_server();
 }
 
