@@ -54,7 +54,6 @@ void read_maildir_servers_new(maildir_other_server *server);
 message *get_message(maildir_other_server *server);
 message *parse_message(char *filepath);
 my_pair *get_header(char *line); 
-int find_server_num_by_name(char *name, maildir_main *maildir);
 void delete_msg(maildir_other_server *server, message *mes, int flg);
 void move_msg_to_error(char *oldPath);
 void free_message(message *mess);
