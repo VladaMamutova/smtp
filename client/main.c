@@ -15,8 +15,8 @@ int main()
     switch (log_pid = fork())
     {
         case 0:
-            start_logger(log_file);
             cur_level = DEBUG;
+            start_logger(log_file);
             break;
         case -1:
             fprintf(stderr, "Can't fork log process\n");
