@@ -1,5 +1,7 @@
 #include "log.h"
 #include "server.h"
+#include "config.h"
+#include "maildir.h"
 #include "socket_utils.h"
 
 #include <sys/socket.h>
@@ -18,7 +20,8 @@ poll_args server_poll = {0};
 void run_server()
 {
     init_signals_handler();
-    
+    init_maildir();
+
     int server_socket = -1;
     if (initSocket(&server_socket) < 0) {
         log_e("%s", "Failed to create socket!");
@@ -65,7 +68,7 @@ int initSocket(int *server_socket)
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(SERVER_PORT); // перевод в сетевой порядок байт
+    addr.sin_port = htons(config_context.port); // перевод в сетевой порядок байт
     if (bind(*server_socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         printf("Error: bind() failed\n");
         close(*server_socket);
