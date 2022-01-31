@@ -1,4 +1,5 @@
 #include "status.h"
+#include "config.h"
 #include <string.h>
 
 char* response_by_status(status code)
@@ -8,7 +9,7 @@ char* response_by_status(status code)
     switch (code)
     {
     case STATUS_SERVER_IS_READY: 
-        strcpy(message, SERVER_DOMAIN);
+        strcpy(message, config_context.domain);
         break;
     case STATUS_CLOSING:
         strcpy(message, "Closing connection");
@@ -39,6 +40,9 @@ char* response_by_status(status code)
         break;
     case STATUS_IMPROPER_COMMAND_SEQUENCE:
         strcpy(message, "Improper sequence of commands");
+        break;
+    case STATUS_INCORRECT_EMAIL:
+        strcpy(message, "Syntactically incorrect mail address");
         break;
     case STATUS_TRANSACTION_FAILED:
         strcpy(message, "The transaction failed due to an unknown error");

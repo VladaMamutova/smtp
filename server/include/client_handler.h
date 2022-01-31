@@ -4,12 +4,13 @@
 #include "client.h"
 #include "status.h"
 
-#define BUFFER_SIZE 1024
-
 int greet_client(client *client);
 int handle_client(client *client);
+int process_command(client *client);
 char* receive_request(client *client);
 int send_response(client *client, status status);
+char* get_mail(const char *message);
+int process_letter(client *client);
 
 int handle_helo(client *client);
 int handle_ehlo(client *client);

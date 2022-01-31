@@ -16,10 +16,10 @@ typedef enum {
     STATUS_SYNTAX_ERROR_IN_ARGS = 501,
     STATUS_NOT_IMPLEMENTED_COMMAND = 502,
     STATUS_IMPROPER_COMMAND_SEQUENCE = 503,
-    STATUS_TRANSACTION_FAILED = 554//,
+    STATUS_INCORRECT_EMAIL = 553,
+    STATUS_TRANSACTION_FAILED = 554
 } status;
 
-#define SERVER_DOMAIN "vvserver.com"
 
 char* response_by_status(status code);
 

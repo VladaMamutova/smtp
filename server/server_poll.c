@@ -77,10 +77,10 @@ void process_ready_clients(poll_args *server_poll)
         else
         {
             client_hash *client_hash = find_client(client.fd);
-            int success = handle_client(&client_hash->client_info);
+            int success = handle_client(client_hash->client_info);
             if (!success)
             {
-                log_i("Close and release <%d> client.", client.fd);
+                log_i("Close and release <%s> (socket: %d) client.", client_hash->client_info->name, client.fd);
                 close(server_poll->fds[i].fd);
                 remove_client(client.fd);
                 // Устанавливаем признак отключения клиента -1 (у объекта в массиве!).
@@ -128,7 +128,7 @@ int accept_new_client(poll_args *server_poll)
                 log_i("New client <%s> (socket: %d) accepted.",
                     new_client->name, socket);
 
-                insert_client(*new_client);
+                insert_client(new_client);
                 server_poll->fds[server_poll->nfds].fd = socket;
                 server_poll->fds[server_poll->nfds].events = POLLIN;
                 server_poll->fds[server_poll->nfds].revents = -1;

@@ -12,7 +12,7 @@ typedef int key;
 
 typedef struct client_hash_t {
     struct client_hash_t *next;
-    client client_info;
+    client *client_info;
 } client_hash;
 
 
@@ -26,7 +26,7 @@ void init_client_hash(int size);
 key hash(key client_socket);
 
 // Добавление нового клиента в ассоциативный список клиентов.
-client_hash *insert_client(client client_info);
+client_hash *insert_client(client *client_info);
 
 // Удаление существующего клиента из списка.
 int remove_client(key client_socket);

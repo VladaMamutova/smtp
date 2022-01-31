@@ -13,10 +13,10 @@ key hash(key client_socket)
     return client_socket % client_hash_size; // не больше, чем размер client_hash
 }
 
-client_hash *insert_client(client client_info)
+client_hash *insert_client(client *client_info)
 {
     client_hash *new_client = malloc(sizeof(client_hash));
-    key key = hash(client_info.socket);
+    key key = hash(client_info->socket);
 
     // Вставляем клиента в начало списка по индексу.
     client_hash *next_client = clients[key];
@@ -33,7 +33,7 @@ int remove_client(key client_socket)
 
     // Ищем клиента, которого необходимо удалить из списка.
     client_hash *client_to_remove = clients[key];
-    while (client_to_remove && !EQUALS(client_to_remove->client_info.socket, client_socket)) {
+    while (client_to_remove && !EQUALS(client_to_remove->client_info->socket, client_socket)) {
         previous_client = client_to_remove;
         client_to_remove = client_to_remove->next;
     }
@@ -49,6 +49,7 @@ int remove_client(key client_socket)
         clients[key] = client_to_remove->next;
     }
 
+    free(client_to_remove->client_info);
     free(client_to_remove);
     return 0;
 }
@@ -57,7 +58,8 @@ client_hash* find_client(key client_socket) {
     client_hash *result;
 
     result = clients[hash(client_socket)];
-    while (result && !EQUALS(result->client_info.socket, client_socket)) 
+    while (result && !EQUALS(result->client_info->socket, client_socket)) {
         result = result->next;
+    }
     return result;
 }
