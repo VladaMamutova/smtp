@@ -38,6 +38,7 @@ typedef struct maildir_other_server {
 
     int iteration;
     int error;
+    int step;
 } maildir_other_server;
 
 

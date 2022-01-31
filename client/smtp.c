@@ -207,18 +207,18 @@ char *get_addr_by_socket(int socket)
     return addr;
 }
 
-smtp_response get_smtp_response(smtp_context *context)
+smtp_response *get_smtp_response(smtp_context *context)
 {
-    smtp_response response;
+    smtp_response *response = malloc(sizeof(smtp_response));
     char *buffer = NULL;
-    response.message = NULL;
+    
 
     char *addr = get_addr_by_socket(context->socket_desc);
 
     if ((buffer = read_from_socket(context->socket_desc)) == NULL)
     {
         //log_e("Error while read buffer for (%s)", addr);
-        response.status_code = UNDEFINED_ERROR;
+        response->status_code = UNDEFINED_ERROR;
         free(addr);
         return response;
     }
@@ -238,11 +238,11 @@ smtp_response get_smtp_response(smtp_context *context)
     strncpy(message, buffer + i + 1, strlen(buffer) - i);
     message[strlen(buffer) - i] = 0;
 
-    response.message = message;
-    response.status_code = convert_string_to_long_int(code);
+    response->message = message;
+    response->status_code = convert_string_to_long_int(code);
 
-    //log_i("Response <%s>: %d %s", addr, response.status_code, response.message);
-    printf("Response <%s>: %d %s \n", addr, response.status_code, response.message);
+    //log_i("Response <%s>: %d %s", addr, response->status_code, response->message);
+    printf("Response <%s>: %d %s \n", addr, response->status_code, response->message);
 
     free(addr);
     free(buffer);
