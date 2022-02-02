@@ -48,18 +48,35 @@ void append_body(letter *letter, const char* content) {
 
 void free_letter(letter *letter)
 {
+    if (letter == NULL) {
+        return;
+    }
+
     if (letter->mail_from != NULL) {
         free(letter->mail_from);
+        letter->mail_from = NULL;
     }
-    for (int i = 0; i < letter->recipients_count; ++i) {
-        free(letter->rcpt_to[i]);
-        free(letter->rcpt_domain[i]);
+
+    if (letter->rcpt_to != NULL) {
+        for (int i = 0; i < letter->recipients_count; ++i) {
+            free(letter->rcpt_to[i]);
+        }
+        free(letter->rcpt_to);
+        letter->rcpt_to = NULL;
     }
-    free(letter->rcpt_to);
-    free(letter->rcpt_domain);
+
+    if (letter->rcpt_domain != NULL) {
+        for (int i = 0; i < letter->recipients_count; ++i) {
+            free(letter->rcpt_domain[i]);
+        }
+        free(letter->rcpt_domain);
+        letter->rcpt_domain = NULL;
+    }
+
     if (letter->body != NULL) {
         free(letter->body);
         letter->body = NULL;
     }
+
     free(letter);
 }

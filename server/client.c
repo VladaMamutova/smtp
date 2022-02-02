@@ -25,6 +25,8 @@ void free_client(client *client)
     }
     if (client->letter != NULL) {
         free_letter(client->letter);
+        client->letter = NULL;
     }
+
     free(client);
 }

@@ -1,5 +1,5 @@
-#ifndef _LETTER_H_
-#define _LETTER_H_
+#ifndef LETTER_H_
+#define LETTER_H_
 
 #include <stdio.h>
 
@@ -19,4 +19,4 @@ int add_recipient(letter *letter, char* mail);
 void append_body(letter *letter, const char *content);
 void free_letter(letter *letter);
 
-#endif // _LETTER_H_
+#endif // LETTER_H_

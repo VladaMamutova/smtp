@@ -30,6 +30,7 @@ void run_server()
     
     init_server_poll(&server_poll, server_socket);
 
+    server_started = 1;
     log_i("%s", "Server poll started!\n");
 
     int result;
@@ -38,8 +39,8 @@ void run_server()
         result = do_poll(&server_poll);
     } while (result != -1);
 
+    stop_server_poll(&server_poll);
     log_i("%s", "Server process finished!");
-    stop_server();
 }
 
 int initSocket(int *server_socket)
@@ -91,16 +92,5 @@ void init_signals_handler()
 void handle_server_signal(int signal)
 {
     printf("\nSignal <SIGINT> received. Stopping server...\n");
-    stop_server();
-}
-
-void stop_server() {
-   for (int i = 0; i < server_poll.nfds; ++i) {
-        if (server_poll.fds[i].fd >= 0) {
-            close(server_poll.fds[i].fd);
-        }
-    }
-
-    printf("Server process <%d> stopped!\n", getpid());
-    exit(0);
+    server_started = 0;
 }

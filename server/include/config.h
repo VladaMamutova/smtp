@@ -18,4 +18,4 @@ extern config config_context;
 int load_config();
 void free_config();
 
-#endif
+#endif // CONFIG_H

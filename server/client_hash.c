@@ -49,7 +49,7 @@ int remove_client(key client_socket)
         clients[key] = client_to_remove->next;
     }
 
-    free(client_to_remove->client_info);
+    free_client(client_to_remove->client_info);
     free(client_to_remove);
     return 0;
 }

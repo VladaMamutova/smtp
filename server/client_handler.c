@@ -3,6 +3,7 @@
 #include "command.h"
 #include "client_handler.h"
 #include "maildir.h"
+#include "socket_utils.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -31,9 +32,6 @@ int handle_client(client *client)
     if (request == NULL) {
         if (client->state == STATE_CLOSED) {
             result = FAIL;
-        } else if (!send_response(client, STATUS_ABORTED_DUE_TO_ERROR)) {
-            client->state = STATE_CLOSED;
-            result = FAIL;
         }
     } else {
         if (client->state == STATE_DATA_RECEIVING) {
@@ -41,7 +39,7 @@ int handle_client(client *client)
             char* body_end = strstr(client->letter->body, "\r\n.\r\n");
             if (body_end != NULL) {
                 client->state = STATE_DATA_RECEIVED;
-                *body_end++ = '\0';
+                *body_end = '\0';
                 
                 result = process_letter(client);
             }
@@ -67,17 +65,17 @@ int process_command(client *client)
  
     switch (str_to_command(command))
     {
-    case COMMAND_HELO: return handle_helo(client);       
-    case COMMAND_EHLO: return handle_ehlo(client);
-    case COMMAND_MAIL_FROM: return handle_mail_from(client);
-    case COMMAND_RCPT_TO: return handle_rcpt_to(client);
-    case COMMAND_DATA: return handle_data(client);
-    case COMMAND_VRFY: return handle_vrfy(client);
-    case COMMAND_RSET: return handle_rset(client);
-    case COMMAND_QUIT:
-        handle_quit(client);
-        return FAIL;
-    default: return send_response(client, STATUS_UNRECOGNIZED_COMMAND);
+        case COMMAND_HELO: return handle_helo(client);       
+        case COMMAND_EHLO: return handle_ehlo(client);
+        case COMMAND_MAIL_FROM: return handle_mail_from(client);
+        case COMMAND_RCPT_TO: return handle_rcpt_to(client);
+        case COMMAND_DATA: return handle_data(client);
+        case COMMAND_VRFY: return handle_vrfy(client);
+        case COMMAND_RSET: return handle_rset(client);
+        case COMMAND_QUIT:
+            handle_quit(client);
+            return FAIL;
+        default: return send_response(client, STATUS_UNRECOGNIZED_COMMAND);
     }
 }
 
@@ -98,7 +96,7 @@ int send_response(client *client, status status)
 
 char* receive_request(client *client)
 {
-    ssize_t message_size = BUFFER_SIZE + 1; // + 1 for '\0'
+    ssize_t message_size = BUFFER_SIZE;
     char *message = calloc(message_size, sizeof(char));
     message[0] = '\0';
 
@@ -112,12 +110,26 @@ char* receive_request(client *client)
     while (!end && (bytes = recv(client->socket, buffer, BUFFER_SIZE, 0)) > 0)
     {
         recv_bytes += bytes;
-        if (recv_bytes > message_size) {
-            message_size = recv_bytes + 1; // + 1 for '\0'
-            message = (char *)realloc(message, message_size);
+
+        if (recv_bytes >= message_size)
+        {
+            size_t prev_size = message_size;
+            message_size = recv_bytes + 1;
+            void *new_message = malloc(message_size * sizeof(char));
+            if (new_message == NULL) {
+                free(message);
+                log_e("Failed to read so big message from <%s> client (%d: %s).",
+                    client->name, errno, strerror(errno));
+                return NULL;
+            }
+
+            memcpy(new_message, message, prev_size * sizeof(char));
+            free(message);
+            message = new_message;
         }
 
         strcat(message, buffer);
+        message[recv_bytes] = '\0';
 
         if (strstr(message, "\r\n") != NULL) {
             end = 1;
@@ -127,10 +139,19 @@ char* receive_request(client *client)
     }
 
 	if (bytes < 0) { // error while reading
-        free(message);
-		log_e("Failed to read from <%s> client (%d: %s).",
-            client->name, errno, strerror(errno));
-		return NULL;
+        if (no_events()) {
+            log_w("Failed to read from <%s> client (%d: %s).",
+                client->name, errno, strerror(errno));
+            if (strlen(message) > 0) {
+                return message;
+            }
+            return NULL;
+        } else {
+            log_e("Failed to read from <%s> client (%d: %s).",
+                client->name, errno, strerror(errno));
+            client->state = STATE_CLOSED;
+            return NULL;
+        }
     }
 	if (bytes == 0) { // connection is closed
         client->state = STATE_CLOSED;
@@ -139,6 +160,11 @@ char* receive_request(client *client)
 		return NULL;
 	}
 
+    if (strlen(message) < MAX_COMMAND_LENGTH) {
+        log_i("Client <%s>: %s", client->name, message);
+    } else {
+        log_i("Client <%s> sent a big message...", client->name);
+    }
     return message;
 }
 
@@ -248,7 +274,7 @@ int handle_data(client *client)
 int process_letter(client *client)
 {
     char **filenames = (char**)malloc(client->letter->recipients_count * sizeof(char*));
-    FILE **letter_files = (FILE**)malloc(client->letter->recipients_count * sizeof(FILE*));;
+    FILE **letter_files = (FILE**)malloc(client->letter->recipients_count * sizeof(FILE*));
 
     int created = 0;
     for (int i = 0; i < client->letter->recipients_count && i == created; i++) {
@@ -266,8 +292,12 @@ int process_letter(client *client)
         send_response(client, STATUS_OK);
         for (int i = 0; i < client->letter->recipients_count; i++) {
             fprintf(letter_files[i], "From: %s\n", client->letter->mail_from);
+            fprintf(letter_files[i], "To: ");
             for (int j = 0; j < client->letter->recipients_count; j++) {
-                fprintf(letter_files[i], "To: %s\n", client->letter->rcpt_to[j]);
+                fprintf(letter_files[i], "%s", client->letter->rcpt_to[j]);
+                if (j < client->letter->recipients_count - 1) {
+                    fprintf(letter_files[i], ", ");
+                }
             }
             fprintf(letter_files[i], "\n%s\n", client->letter->body);
         }
@@ -281,7 +311,7 @@ int process_letter(client *client)
     free(filenames);
     free(letter_files);
     free_letter(client->letter);
-
+    client->letter = NULL;
     client->state = STATE_INIT;
     return SUCCESS;
 }
@@ -297,6 +327,7 @@ int handle_rset(client *client)
     free(client->buffer);
     client->buffer = NULL;
     free_letter(client->letter);
+    client->letter = NULL;
     client->state = STATE_INIT;
     send_response(client, STATUS_OK);
     return SUCCESS;

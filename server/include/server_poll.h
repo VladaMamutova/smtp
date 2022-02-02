@@ -15,11 +15,14 @@ typedef struct {
 	int nfds;
 } poll_args;
 
-void init_server_poll();
+extern int server_started;
+
+void init_server_poll(poll_args *server_poll, int server_socket);
 int do_poll(poll_args *server_poll);
 int is_server_socket(poll_args server_poll, int socket);
 void process_ready_clients(poll_args *server_poll);
 int accept_new_client(poll_args *server_poll);
 void remove_closed_clients(poll_args* server_poll);
+void stop_server_poll(poll_args *server_poll);
 
 #endif // SERVER_POLL_H

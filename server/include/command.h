@@ -6,6 +6,8 @@
 #define COMMAND_LENGTH 4
 #define COMMAND_NUMBER 8
 
+#define MAX_COMMAND_LENGTH 100 // вместе с параметрами
+
 typedef enum {
     COMMAND_UNKNOWN = -1,
 

@@ -13,6 +13,8 @@
 #include <string.h> // strerror
 #include <errno.h>
 
+int server_started = 0;
+
 void init_server_poll(poll_args *server_poll, int server_socket)
 {
     server_poll->server_socket = server_socket;
@@ -35,15 +37,17 @@ int do_poll(poll_args *server_poll)
 
     int ready = poll(server_poll->fds, (nfds_t)server_poll->nfds, -1); // -1 - infinite timeout
     if (ready < -1) {
-        log_e("Failed to poll clients (%d: %s).", errno, strerror(errno));
-        return -1;
+        if (!server_started) {
+            stop_server_poll(server_poll);
+        } else {
+            log_e("Failed to poll clients (%d: %s).", errno, strerror(errno));
+            return -1;
+        }
     }
-
-    log_i("Start processing %d clients...", ready);
 
     process_ready_clients(server_poll);
 
-    log_d("%s", "All clients are processed!\n");
+    log_d("%s\n", "All clients processed!");
     return 0;
 }
 
@@ -57,6 +61,9 @@ void process_ready_clients(poll_args *server_poll)
     int closed = 0;
     for (int i = 0; i < server_poll->nfds; ++i)
     {
+        if (!server_started) {
+            stop_server_poll(server_poll);
+        }
         struct pollfd client = server_poll->fds[i];
         if (client.revents <= 0) {
             continue;
@@ -80,7 +87,8 @@ void process_ready_clients(poll_args *server_poll)
             int success = handle_client(client_hash->client_info);
             if (!success)
             {
-                log_i("Close and release <%s> (socket: %d) client.", client_hash->client_info->name, client.fd);
+                log_i("Close and release client <%s> (socket: %d).",
+                    client_hash->client_info->name, client.fd);
                 close(server_poll->fds[i].fd);
                 remove_client(client.fd);
                 // Устанавливаем признак отключения клиента -1 (у объекта в массиве!).
@@ -151,4 +159,24 @@ void remove_closed_clients(poll_args *server_poll)
             --server_poll->nfds;
         }
     }
+}
+
+void stop_server_poll(poll_args *server_poll)
+{
+    for (int i = 1; i < server_poll->nfds; ++i) {
+       int client = server_poll->fds[i].fd;
+        if (client >= 0) {
+            client_hash *client_hash = find_client(client);
+            send_response(client_hash->client_info, STATUS_SERVER_IS_NOT_AVAILABLE);
+            log_i("Close and release client <%s> (socket: %d).",
+                client_hash->client_info->name, client);
+            remove_client(client);
+            close(client);            
+        }
+    }
+
+    close(server_poll->fds[0].fd);
+
+    printf("Server process <%d> stopped!\n", getpid());
+    exit(1);
 }
