@@ -20,9 +20,7 @@
 smtp_context *smtp_connect(char *server, char *port)
 {
 
-    log_i("Try connect to  %s", server);
     smtp_context *context;
-    ////sleep(1);
 
     context = malloc(sizeof(smtp_context));
     context->socket_desc = -1;
@@ -31,66 +29,45 @@ smtp_context *smtp_connect(char *server, char *port)
     ips ips = {0};
     ips.ip_array = NULL;
 
-    //sleep(1);
+    char *mxs[MAX_MX_ADDRS];
 
-    if (strcmp(server, config_context.hostname) == 0)
-    { //подключение к локальному серверу
+    int len = resolve_mx(server, mxs, MAX_MX_ADDRS);
 
-        ips.ip_array = malloc(sizeof(char *));
-        ips.ip_array[0] = "127.0.0.1";
-        ips.ips_size++;
+    if (len == -1)
+    {
+        log_e("MX-record for domain %s Not found", server);
+        return context;
+    }
+
+    for (int i = 0; i < len; i++)
+    {
+        ips = get_ips_by_hostname(mxs[i]);
 
         int server_socket;
-        if ((server_socket = connect_to_server(ips, config_context.server_port)) != -1)
+        if ((server_socket = connect_to_server(ips, port)) != -1)
         {
             context->socket_desc = server_socket;
             context->state_code = CONNECT;
 
-            log_i("Succsecc connect to  %s by address: %s:%s", server, ips.ip_array[0], port);
+            struct timespec tv = {0};
+            tv.tv_sec = 1;
+            nanosleep(&tv, &tv);
+
+            char *addr = get_addr_by_socket(server_socket);
+            log_i("Success connect to %s by address: %s", server, addr);
+            free(addr);
+            break;
         }
     }
-    else // подключение к удаленным серверам
+
+    for (int l = 0; l < len; l++)
     {
-        char *mxs[MAX_MX_ADDRS];
+        free(mxs[l]);
+    }
 
-        int len = resolve_mx(server, mxs, MAX_MX_ADDRS);
-
-        if (len == -1)
-        {
-            log_e("MX-recordfor domain %s Not found", server);
-            return context;
-        }
-
-        for (int i = 0; i < len; i++)
-        {
-            ips = get_ips_by_hostname(mxs[i]);
-
-            int server_socket;
-            if ((server_socket = connect_to_server(ips, port)) != -1)
-            {
-                context->socket_desc = server_socket;
-                context->state_code = CONNECT;
-
-                struct timespec tv = {0};
-                tv.tv_sec = 1;
-                nanosleep(&tv, &tv);
-
-                char *addr = get_addr_by_socket(server_socket);
-                log_i("Success connect to %s by address: %s", server, addr);
-                free(addr);
-                break;
-            }
-        }
-
-        for (int l = 0; l < len; l++)
-        {
-            free(mxs[l]);
-        }
-
-        for (int l = 0; l < ips.ips_size; l++)
-        {
-            free(ips.ip_array[l]);
-        }
+    for (int l = 0; l < ips.ips_size; l++)
+    {
+        free(ips.ip_array[l]);
     }
 
     free(ips.ip_array);
@@ -107,17 +84,18 @@ int connect_to_server(ips ips, char *port)
         return -1;
     }
 
-      /* Structure describing an Internet socket address.  */
+    /* Structure describing an Internet socket address.  */
     struct sockaddr_in server_addr;
 
-    server_addr.sin_family = PF_INET; // /* IP protocol family.  */
+    server_addr.sin_family = PF_INET; //  IP protocol family. 
     memset(&(server_addr.sin_zero), 0, sizeof(server_addr.sin_zero));
+
     server_addr.sin_port = htons(convert_string_to_long_int(port));
 
     for (int j = 0; j < ips.ips_size; j++)
     {
 
-        //преобразовывает обычный вид IP-адреса cp (из номеров и точек) в двоичный код
+        //преобразовывает обычный вид IP-адреса (из номеров и точек) в двоичный код
         inet_aton(ips.ip_array[j], &(server_addr.sin_addr));
 
         socklen_t socklen = sizeof(struct sockaddr);
@@ -144,7 +122,7 @@ ips get_ips_by_hostname(char *hostname)
 
     if ((hostent = gethostbyname(hostname)) == NULL)
     {
-        log_e("%s", "Error find address by domain name");
+        //log_e("%s", "Error find address by domain name");
         return ips;
     }
 
@@ -164,19 +142,21 @@ ips get_ips_by_hostname(char *hostname)
 
 int resolve_mx(const char *name, char **mxs, int limit)
 {
-    log_i("resolve MX record for %s", name);
+    //log_i("resolve MX record for %s", name);
     u_char response[NS_PACKETSZ];
     ns_msg msg;
     ns_rr rr;
     int mx_index, ns_index, len;
     char dispbuf[4096];
 
+    //делаем запрос к днс. по имени получаем полное доменное имя
     if ((len = res_search(name, C_IN, T_MX, response, NS_PACKETSZ + 1)) < 0)
     {
         log_e("Error find MX record for %s", name);
         return -1;
     }
 
+    //заполняем msg
     if (ns_initparse(response, len, &msg) < 0)
     {
         log_e("Error find MX record for %s", response);
@@ -188,10 +168,9 @@ int resolve_mx(const char *name, char **mxs, int limit)
     if (len < 0)
         return 0;
 
-
     for (mx_index = 0, ns_index = 0; mx_index < limit && ns_index < len; ns_index++)
     {
-        if (ns_parserr(&msg, ns_s_an, ns_index, &rr))
+        if (ns_parserr(&msg, ns_s_an, ns_index, &rr)) //извлекаем полученную информацию
         {
             log_e("%s", "resolve_mx() ns_parserr()");
             continue;
@@ -201,6 +180,7 @@ int resolve_mx(const char *name, char **mxs, int limit)
         if (ns_rr_class(rr) == ns_c_in && ns_rr_type(rr) == ns_t_mx)
         {
             char mxname[MAXDNAME];
+            // расширяет сжатое доменное имя до полного доменного имени
             dn_expand(ns_msg_base(msg), ns_msg_base(msg) + ns_msg_size(msg), ns_rr_rdata(rr) + NS_INT16SZ,
                       mxname, sizeof(mxname));
             mxs[mx_index++] = strdup(mxname);
@@ -227,18 +207,18 @@ char *get_addr_by_socket(int socket)
     return addr;
 }
 
-smtp_response get_smtp_response(smtp_context *context)
+smtp_response *get_smtp_response(smtp_context *context)
 {
-    smtp_response response;
+    smtp_response *response = malloc(sizeof(smtp_response));
     char *buffer = NULL;
-    response.message = NULL;
+    
 
     char *addr = get_addr_by_socket(context->socket_desc);
 
     if ((buffer = read_from_socket(context->socket_desc)) == NULL)
     {
-        log_e("Error while read buffer for (%s)", addr);
-        response.status_code = UNDEFINED_ERROR;
+        //log_e("Error while read buffer for (%s)", addr);
+        response->status_code = UNDEFINED_ERROR;
         free(addr);
         return response;
     }
@@ -258,11 +238,11 @@ smtp_response get_smtp_response(smtp_context *context)
     strncpy(message, buffer + i + 1, strlen(buffer) - i);
     message[strlen(buffer) - i] = 0;
 
-    response.message = message;
-    response.status_code = convert_string_to_long_int(code);
+    response->message = message;
+    response->status_code = convert_string_to_long_int(code);
 
-    log_i("Response <%s>: %d %s", addr, response.status_code, response.message);
-    printf("Response <%s>: %d %s \n", addr, response.status_code, response.message);
+    //log_i("Response <%s>: %d %s", addr, response->status_code, response->message);
+    printf("Response <%s>: %d %s \n", addr, response->status_code, response->message);
 
     free(addr);
     free(buffer);
@@ -362,7 +342,7 @@ state_code smtp_send_helo(smtp_context *context)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s", addr, buff);
+        //log_i("Command <%s>: %s", addr, buff);
         printf("Command <%s>: %s \n", addr, buff);
         free(addr);
     }
@@ -384,7 +364,7 @@ state_code smtp_send_mail(smtp_context *context, char *from)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s ", addr, buff);
+        //log_i("Command <%s>: %s ", addr, buff);
         printf("Command <%s>: %s \n", addr, buff);
         free(addr);
     }
@@ -407,7 +387,7 @@ state_code smtp_send_rcpt(smtp_context *context, char *to)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s ", addr, buff);
+        //log_i("Command <%s>: %s ", addr, buff);
         printf("Command <%s>: %s \n", addr, buff);
 
         free(addr);
@@ -426,7 +406,7 @@ state_code smtp_send_data(smtp_context *context)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s ", addr, "DATA");
+        //log_i("Command <%s>: %s ", addr, "DATA");
         printf("Command <%s>: %s \n", addr, "DATA");
         free(addr);
     }
@@ -446,7 +426,7 @@ state_code smtp_send_message(smtp_context *context, char *message)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s ", addr, buff);
+        //log_i("Command <%s>: %s ", addr, buff);
         printf("Command <%s>: %s \n", addr, buff);
 
         free(addr);
@@ -465,7 +445,7 @@ state_code smtp_send_end_message(smtp_context *context)
         char *addr = get_addr_by_socket(context->socket_desc);
 
         //sleep(1);
-        log_i("Command <%s>: %s ", addr, ".");
+        //log_i("Command <%s>: %s ", addr, ".");
         printf("Command <%s>: %s \n", addr, ".");
 
         free(addr);
@@ -474,15 +454,16 @@ state_code smtp_send_end_message(smtp_context *context)
     return context->state_code;
 }
 
-state_code smtp_send_quit(smtp_context *context) {
-    if (send_smtp_command(context, "QUIT\r\n") != INVALID) {
+state_code smtp_send_quit(smtp_context *context)
+{
+    if (send_smtp_command(context, "QUIT\r\n") != INVALID)
+    {
         context->state_code = QUIT;
-        
+
         char *addr = get_addr_by_socket(context->socket_desc);
 
-
-        log_i("Command <%s>: %s ", addr, "QUIT");
-        printf("Command <%s>: %s \n", addr,"QUIT");
+        //log_i("Command <%s>: %s ", addr, "QUIT");
+        printf("Command <%s>: %s \n", addr, "QUIT");
         free(addr);
     }
 
