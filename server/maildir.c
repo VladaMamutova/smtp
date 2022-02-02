@@ -98,9 +98,9 @@ char* get_base_dir(const char *username, const char *domain)
         base_dirname = malloc(base_dirname_size);
         sprintf(base_dirname, "%s/%s", config_context.maildir, username);
     } else {
-        base_dirname_size = strlen(maildir_base) + 1;
+        base_dirname_size = strlen(maildir_base) + 1 + strlen(domain);
         base_dirname = malloc(base_dirname_size);
-        sprintf(base_dirname, "%s", maildir_base);
+        sprintf(base_dirname, "%s/%s", maildir_base, domain);
     }
 
     return base_dirname;
