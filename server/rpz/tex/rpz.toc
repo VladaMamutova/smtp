@@ -1,0 +1,16 @@
+\babel@toc {russian}{}
+\contentsline {chapter}{Введение}{1}{chapter*.1}%
+\contentsline {chapter}{\numberline {1.}Аналитический раздел}{3}{chapter.1}%
+\contentsline {section}{\numberline {1.1.\relax }Описание протокола SMTP}{3}{section.1.1}%
+\contentsline {section}{\numberline {1.2.\relax }Объекты электронной почты}{4}{section.1.2}%
+\contentsline {section}{\numberline {1.3.\relax }Получатель и отправитель}{4}{section.1.3}%
+\contentsline {section}{\numberline {1.4.\relax }Команды SMTP}{5}{section.1.4}%
+\contentsline {section}{\numberline {1.5.\relax }SMTP-сессия}{6}{section.1.5}%
+\contentsline {chapter}{\numberline {2.}Конструкторский раздел}{8}{chapter.2}%
+\contentsline {section}{\numberline {2.1.\relax }Описание конечного автомата}{8}{section.2.1}%
+\contentsline {section}{\numberline {2.2.\relax }Описание формата хранения писем в файловой системе}{9}{section.2.2}%
+\contentsline {section}{\numberline {2.3.\relax }Взаимодействие клиента и сервера}{11}{section.2.3}%
+\contentsline {chapter}{\numberline {3.}Технологический раздел}{13}{chapter.3}%
+\contentsline {section}{\numberline {3.1.\relax }Описание процесса работы SMTP-сервера}{13}{section.3.1}%
+\contentsline {chapter}{\numberline {4.}Заключение}{15}{chapter.4}%
+\contentsline {chapter}{\numberline {5.}Список литературы}{16}{chapter.5}%

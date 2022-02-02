@@ -2,13 +2,13 @@
 #include "queue.h"
 
 #include <fcntl.h>
-#include <signal.h> // sigaction
-#include <sys/msg.h>
+#include <signal.h> // signal
 
 #include <time.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <unistd.h> // access
 
@@ -18,14 +18,13 @@
 int queue_id;
 key_t key; // ключ для системных вызовов
 FILE *file_log = NULL;
-
-int save_message(const char *message, ssize_t size);
+log_level current_level;
 
 int start_logger(const char *filename)
 {
-    signal(SIGINT, &handle_log_signal); // обработчик CTRL+C
+    printf("Logs will be saved to a file '%s'.\n\n", filename);
 
-    printf("Logs will be saved to a file '%s'.\n", filename);
+    signal(SIGINT, &handle_log_signal); // обработчик CTRL+C
 
     if ((file_log = fopen(filename, "w+")) == NULL) {
         printf("Error: fopen() failed");
@@ -53,7 +52,6 @@ int start_logger(const char *filename)
 
     while (1)
     {
-
         if (msgrcv(queue_id, &queue_msg, sizeof(queue_msg), 1, MSG_NOERROR) < 0) {
             printf("Error: msgrcv() failed");
             return stop_logger();
@@ -67,6 +65,16 @@ int start_logger(const char *filename)
     }
 
     return 0;
+}
+
+log_level get_log_level()
+{
+    return current_level;
+}
+
+void set_log_level(log_level log_level)
+{
+    current_level = log_level;
 }
 
 int log_message(log_level level, const char *message)
@@ -109,6 +117,7 @@ int save_message(const char *message, ssize_t size)
     strcat(log_msg, " ");
     strcat(log_msg, message);
 
+    printf("%s", log_msg); // дублируем логи в консоль
     fwrite(log_msg, sizeof(char), log_msg_size, file_log);
     free(log_msg);
     return 0;
@@ -116,7 +125,7 @@ int save_message(const char *message, ssize_t size)
 
 void handle_log_signal(int signal)
 {
-    printf("Signal <SIGINT> received. Stopping logger...\n");
+    printf("\nSignal <SIGINT> received. Stopping logger...\n");
     stop_logger();
 }
 

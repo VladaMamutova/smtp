@@ -1,5 +1,8 @@
 #include "log.h"
 #include "server.h"
+#include "config.h"
+#include "maildir.h"
+#include "socket_utils.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h> // sockaddr_in
@@ -17,31 +20,27 @@ poll_args server_poll = {0};
 void run_server()
 {
     init_signals_handler();
-    
-    server_poll.server_socket = -1;
-    if (initSocket(&server_poll.server_socket) < 0) {
+    init_maildir();
+
+    int server_socket = -1;
+    if (initSocket(&server_socket) < 0) {
         log_e("%s", "Failed to create socket!");
         return;
     }
     
-    // Заполняем структуры для всех клиентов значениями по умолчанию.
-    memset(&server_poll.fds, -1, sizeof(server_poll.fds));
-    
-    // Инициализируем структуру для прослушивающего серверного сокета.
-    server_poll.nfds = 1;
-    server_poll.fds[0].fd = server_poll.server_socket;
-    server_poll.fds[0].events = POLLIN; // готовность к чтению
+    init_server_poll(&server_poll, server_socket);
 
-    log_i("%s", "Server poll started started!");
-    
-    int success;
+    server_started = 1;
+    log_i("%s", "Server poll started!\n");
+
+    int result;
     do
     {
-        success = do_poll(server_poll);
-    } while (success);
+        result = do_poll(&server_poll);
+    } while (result != -1);
 
+    stop_server_poll(&server_poll);
     log_i("%s", "Server process finished!");
-    stop_server();
 }
 
 int initSocket(int *server_socket)
@@ -54,6 +53,12 @@ int initSocket(int *server_socket)
         return -1;
     }
 
+    if (set_socket_nonblock(*server_socket) < 0) {
+        printf("Error: Failed to set non-blocking mode for the server socket");
+        close(*server_socket);
+        return -1;
+    }
+
     if (setsockopt(*server_socket, SOL_SOCKET, SO_REUSEPORT | SO_REUSEADDR,
                    (char *)&opt_val, sizeof(opt_val)) < 0) {
         printf("Error: setsockopt() failed");
@@ -61,16 +66,10 @@ int initSocket(int *server_socket)
         return -1;
     }
 
-    if (ioctl(*server_socket, FIONBIO, (char *)&opt_val) < 0) {
-        printf("Error: ioctl() failed");
-        close(*server_socket);
-        return -1;
-    }
-
     struct sockaddr_in addr;
     addr.sin_family = AF_INET;
     addr.sin_addr.s_addr = INADDR_ANY;
-    addr.sin_port = htons(SERVER_PORT); // перевод в сетевой порядок байт
+    addr.sin_port = htons(config_context.port); // перевод в сетевой порядок байт
     if (bind(*server_socket, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
         printf("Error: bind() failed\n");
         close(*server_socket);
@@ -87,22 +86,11 @@ int initSocket(int *server_socket)
 
 void init_signals_handler()
 {
-    signal(SIGINT, &handle_log_signal); // обработчик CTRL+C
+    signal(SIGINT, &handle_server_signal); // обработчик CTRL+C
 }
 
 void handle_server_signal(int signal)
 {
-    printf("Signal <SIGINT> received. Stopping server...\n");
-    stop_server();
-}
-
-void stop_server() {
-   for (int i = 0; i < server_poll.nfds; ++i) {
-        if (server_poll.fds[i].fd >= 0) {
-            close(server_poll.fds[i].fd);
-        }
-    }
-
-    printf("Server process <%d> stopped!\n", getpid());
-    exit(0);
+    printf("\nSignal <SIGINT> received. Stopping server...\n");
+    server_started = 0;
 }

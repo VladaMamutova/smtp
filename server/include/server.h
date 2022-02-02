@@ -3,10 +3,6 @@
 
 #include "server_poll.h"
 
-#define CLIENT_TIMEOUT 2000
-
-#define SERVER_PORT 50000
-
 extern poll_args server_poll;
 
 void run_server();

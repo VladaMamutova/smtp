@@ -1,5 +1,6 @@
-#include "server.h"
+#include "config.h"
 #include "log.h"
+#include "server.h"
 
 #include <stdio.h>
 #include <sys/types.h> // pid_t
@@ -7,11 +8,13 @@
 
 #include <stdlib.h> // exit
 
-log_level cur_level;
-
 int main()
 {
-    char *log_file = "logs/log.txt";
+    if (!load_config()) {
+        exit(1);
+    }
+
+    set_log_level(config_context.log_level);
 
     pid_t log_pid;
     switch(log_pid = fork()) {
@@ -20,12 +23,12 @@ int main()
         exit(1); // выход из родительского процессса
     case 0:
         printf("Log process <%d> started!\n", getpid());
-        cur_level = DEBUG;
-        start_logger(log_file);
+        start_logger(config_context.log_file);
     default:
         printf("Server process <%d> started!\n", getpid());
         run_server();
     }
 
+    free_config();
     return 0;
 }

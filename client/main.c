@@ -5,17 +5,15 @@
 #include "include/config.h"
 #include "../common/include/log.h"
 
-log_level cur_level;
-
 int main()
 {
     pid_t log_pid;
     char *log_file = "logs/log.txt";
 
+    set_log_level(DEBUG);
     switch (log_pid = fork())
     {
         case 0:
-            cur_level = DEBUG;
             start_logger(log_file);
             break;
         case -1:

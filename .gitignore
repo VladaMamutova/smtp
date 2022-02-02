@@ -1,5 +1,9 @@
 .vscode
 /client/client
+/server/server
+/server/logs/
+/server/maildir/
+/server/test/test
 log.txt
 client/rpz/tex/rpz.aux
 client/rpz/tex/rpz.log
