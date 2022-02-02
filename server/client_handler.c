@@ -4,6 +4,7 @@
 #include "client_handler.h"
 #include "maildir.h"
 #include "socket_utils.h"
+#include "config.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -278,7 +279,7 @@ int process_letter(client *client)
 
     int created = 0;
     for (int i = 0; i < client->letter->recipients_count && i == created; i++) {
-        filenames[i] = get_maildir_filename(client->letter->rcpt_domain[i]);
+        filenames[i] = get_tmp_maildir_filename(client->letter->rcpt_to[i], client->letter->rcpt_domain[i]);
         if ((letter_files[i] = fopen(filenames[i], "a+")) == NULL) {
             log_e("Failed to create file '%s' (%d: %s).", filenames[i],
                 errno, strerror(errno));
@@ -288,24 +289,29 @@ int process_letter(client *client)
         }
     }
     
+    char* new_filename;
     if (created == client->letter->recipients_count) {
         send_response(client, STATUS_OK);
         for (int i = 0; i < client->letter->recipients_count; i++) {
-            fprintf(letter_files[i], "From: %s\n", client->letter->mail_from);
-            fprintf(letter_files[i], "To: ");
-            for (int j = 0; j < client->letter->recipients_count; j++) {
-                fprintf(letter_files[i], "%s", client->letter->rcpt_to[j]);
-                if (j < client->letter->recipients_count - 1) {
-                    fprintf(letter_files[i], ", ");
-                }
-            }
-            fprintf(letter_files[i], "\n%s\n", client->letter->body);
-        }
-    }
+            // fprintf(letter_files[i], "From: %s\n", client->letter->mail_from);
+            // fprintf(letter_files[i], "To: ");
+            // for (int j = 0; j < client->letter->recipients_count; j++) {
+            //     fprintf(letter_files[i], "%s", client->letter->rcpt_to[j]);
+            //     if (j < client->letter->recipients_count - 1) {
+            //         fprintf(letter_files[i], ", ");
+            //     }
+            // }
+            fprintf(letter_files[i], "%s\n", client->letter->body);
 
-    for(int i = 0; i < created; i++) {
-        fclose(letter_files[i]);
-        free(filenames[i]);
+            fclose(letter_files[i]);
+
+            new_filename = get_new_maildir_filename(client->letter->rcpt_to[i], client->letter->rcpt_domain[i]);
+            rename(filenames[i], new_filename);
+            free(new_filename);
+
+            remove(filenames[i]);
+            free(filenames[i]);
+        }
     }
 
     free(filenames);
@@ -324,6 +330,12 @@ int handle_vrfy(client *client)
 
 int handle_rset(client *client)
 {
+    if (client->state == STATE_INIT) {
+        log_w("Incorrect state for the client <%s>: expected any except STATE_INIT",
+            client->name);
+        return send_response(client, STATUS_IMPROPER_COMMAND_SEQUENCE);
+    }
+
     free(client->buffer);
     client->buffer = NULL;
     free_letter(client->letter);

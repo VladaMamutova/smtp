@@ -22,7 +22,7 @@ log_level current_level;
 
 int start_logger(const char *filename)
 {
-    printf("Logs will be saved to a file '%s'.\n", filename);
+    printf("Logs will be saved to a file '%s'.\n\n", filename);
 
     signal(SIGINT, &handle_log_signal); // обработчик CTRL+C
 

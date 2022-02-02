@@ -10,7 +10,7 @@ typedef enum {
     STATE_RCPT_RECEIVED = 3,
     STATE_DATA_RECEIVING = 4,
     STATE_DATA_RECEIVED = 5,
-    STATE_CLOSED = 6,
+    STATE_CLOSED = 6
 } state;
 
 const char* state_to_str(state state);
