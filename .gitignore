@@ -1,7 +1,7 @@
 .vscode
 /client/client
 /server/server
-/server/logs/
+/server/logs/log.txt
 /server/maildir/
 /server/test/test
 log.txt

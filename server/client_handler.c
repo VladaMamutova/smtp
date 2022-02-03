@@ -293,16 +293,7 @@ int process_letter(client *client)
     if (created == client->letter->recipients_count) {
         send_response(client, STATUS_OK);
         for (int i = 0; i < client->letter->recipients_count; i++) {
-            // fprintf(letter_files[i], "From: %s\n", client->letter->mail_from);
-            // fprintf(letter_files[i], "To: ");
-            // for (int j = 0; j < client->letter->recipients_count; j++) {
-            //     fprintf(letter_files[i], "%s", client->letter->rcpt_to[j]);
-            //     if (j < client->letter->recipients_count - 1) {
-            //         fprintf(letter_files[i], ", ");
-            //     }
-            // }
             fprintf(letter_files[i], "%s\n", client->letter->body);
-
             fclose(letter_files[i]);
 
             new_filename = get_new_maildir_filename(client->letter->rcpt_to[i], client->letter->rcpt_domain[i]);

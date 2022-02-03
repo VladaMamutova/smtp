@@ -82,13 +82,13 @@ char *read_file(const char* filename)
     size_t file_size = 1024 * 1024 * 20;
     char *file_content = calloc(file_size, sizeof(char));
     if (!file_content) {
-        printf("Failed to init buffer");
+        printf("Failed to init buffer\n");
         return NULL;
     }
 
     FILE *file;
     if ((file = fopen(filename, "r")) == NULL) {
-        printf("Failed to open file '%s'", filename);
+        printf("Failed to open file '%s'\n", filename);
         return NULL;
     }
 
@@ -120,14 +120,11 @@ int send_command(int socket, const char* command, const char* expected_response)
 
         success = send(socket, buffer, buffer_size, 0);
         if (success <= 0) {
-            if (command_size < MAX_COMMAND_LENGTH) {
-                printf("Failed to send command \"%s\" (%d: %s)", command, errno, strerror(errno));
-            } else {
-                printf("Failed to send buffer (%d: %s):\n%s", errno, strerror(errno), buffer);
-            }
+            printf("Failed to send %s (%d: %s).",
+                command_size < MAX_COMMAND_LENGTH ? command : "a big message",
+                errno, strerror(errno));
             return 0;
         }
-        printf("send buffer \n%s\n\n", buffer);
         offset += buffer_size;
     }
 
@@ -147,7 +144,9 @@ int send_command(int socket, const char* command, const char* expected_response)
     char response[256];
     success = recv(socket, response, sizeof(response), 0);
     if (strstr(response, expected_response) == NULL) {
-        printf("Command \"%s\" failed with %s", command, response);
+        printf("Command \"%s\" failed with %s",
+            command_size < MAX_COMMAND_LENGTH ? command : "a big message",
+            response);
         return 0;
     }
     response[success] = '\0';
@@ -175,14 +174,14 @@ int main()
     int client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if (connect(client_socket, (struct sockaddr *) &server_addr,
         sizeof(server_addr)) < 0) {
-        printf("Failed to connect to the server (127.0.0.1:50025)");
+        printf("Failed to connect to the server (127.0.0.1:50025)\n");
         exit(1);
     }
 
     char response[256];
     if (recv(client_socket, response, sizeof(response), 0) <= 0 ||
         strstr(response, "220") == NULL) {
-        printf("Failed to connect to the server (127.0.0.1:50025)");
+        printf("Failed to connect to the server (127.0.0.1:50025)\n");
         exit(1);
     }
     printf("Connected to the server 127.0.0.1:50025\nStart testing...\n\n");
